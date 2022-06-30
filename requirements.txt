@@ -1,0 +1,6 @@
+dinterpol
+httpx
+metadict
+rich
+pyyaml
+typer
