@@ -5,7 +5,6 @@ import typer
 from dinterpol import Template
 from rich import print_json
 
-from kpet.config import get_context_auth_data
 from kpet.config import KubeConfig
 from kpet.http import httpx_client_get
 
@@ -48,6 +47,9 @@ def print_data(data):
 
 
 def get(
+    context: Optional[str] = typer.Option(
+        None, "-c", "--ctx", help="Config context to use"
+    ),
     endpoint_path: Optional[str] = typer.Argument(
         "", help="Path within the API endpoint"
     ),
@@ -74,7 +76,7 @@ def get(
         tokens = simple_format.split(" ")
         format = " ".join([f"{{{token}}}" for token in tokens])
 
-    auth_data = get_context_auth_data(kubeconfig)
+    auth_data = kubeconfig.get_context_auth_data(context)
     if not auth_data:
         exit(0)
 

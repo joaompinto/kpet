@@ -1,4 +1,6 @@
 import os
+import re
+import shutil
 import sys
 from base64 import b64decode
 from pathlib import Path
@@ -100,7 +102,7 @@ class KubeConfig:
             table.add_row(user["name"], cert, key)
         self.console.print(table)
 
-    def show_current(self, name_only: bool = True):
+    def show_current(self):
         current_context = self.current_context
         if current_context:
             self.console.print(
@@ -110,7 +112,7 @@ class KubeConfig:
             self.console.print(
                 "[bold yello]No current context found on your kubeconfig[/]"
             )
-        if name_only or not current_context:
+        if not current_context:
             return
         context = self.get_context(current_context).context
         cluster = self.get_cluster(context.cluster).cluster
@@ -178,22 +180,44 @@ class KubeConfig:
         cert = (client_cert_file, client_key_file)
         return server, cert, client_ca_file
 
+    def get_context_auth_data(self, context_name=None):
+        if context_name is None:
+            context_name = self.current_context
+        if context_name is None:
+            print(
+                "[red]You have no current context, please provide a context name[/]",
+                file=sys.stderr,
+            )
+            return None
+        try:
+            auth_data = self.get_auth_data(context_name)
+        except KeyError:
+            print(
+                f"Context '[bold red]{context_name}[/]' was not found!", file=sys.stderr
+            )
+            available_contexts = ", ".join([k.name for k in self.contexts])
+            print(
+                f"Available contexts: [bold cyan]{available_contexts}[/]",
+                file=sys.stderr,
+            )
+            return None
+        return auth_data
 
-def get_context_auth_data(kubeconfig):
-    context_name = kubeconfig.current_context
-    if context_name is None:
-        print(
-            "[red]You have no current context, please provide a context name[/]",
-            file=sys.stderr,
+    def switch_context(self, context_name: str) -> None:
+        """change the current
+        perform a simple  ^current-context:.*$ regex replacement on kubeconfig
+        to avoid YAML parsing complications
+        """
+        with open(self.path) as config_file:
+            config_data = config_file.read()
+        config_data = re.sub(
+            r"^(current-context: )(.*)",
+            r"\g<1>" f"{context_name}",
+            config_data,
+            flags=re.MULTILINE,
         )
-        exit(1)
-    try:
-        auth_data = kubeconfig.get_auth_data(context_name)
-    except KeyError:
-        print(f"Context '[bold red]{context_name}[/]' was not found!", file=sys.stderr)
-        available_contexts = ", ".join([k.name for k in kubeconfig.contexts])
-        print(
-            f"Available contexts: [bold cyan]{available_contexts}[/]", file=sys.stderr
-        )
-        return None
-    return auth_data
+        tmp_file = f"{self.path}.tmp"
+        with open(tmp_file, "w") as config_file:
+            config_file.write(config_data)
+        shutil.move(tmp_file, self.path)
+        self.config["current-context"] = context_name

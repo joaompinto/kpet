@@ -1,9 +1,6 @@
 import typer
 
-from .cli import curl
-from .cli import get
-from .cli import main
-from .cli import show
+from .cli import ctx, curl, get, main, show
 
 
 def app_main():
@@ -11,6 +8,7 @@ def app_main():
 
     app.callback()(main.main)
     app.command()(curl.curl)
+    app.command()(ctx.ctx)
     app.command()(get.get)
     app.command()(show.show)
     app()

@@ -13,6 +13,4 @@ def show(
         kubeconfig.show_clusters()
         kubeconfig.show_contexts()
         kubeconfig.show_users()
-        kubeconfig.show_current()
-    else:
-        kubeconfig.show_current(name_only=False)
+    kubeconfig.show_current()
