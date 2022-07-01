@@ -1,3 +1,4 @@
+import sys
 from typing import Optional
 
 import typer
@@ -21,6 +22,6 @@ def ctx(
     else:
         for context in kubeconfig.contexts:
             name = context.name
-            if kubeconfig.current_context == context.name:
+            if sys.stdout.isatty() and kubeconfig.current_context == context.name:
                 name = f"{name} [blue]-> current[/]"
             print(f"{name}")

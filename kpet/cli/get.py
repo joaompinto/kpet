@@ -20,7 +20,7 @@ def _contains(container: list, content: dict) -> bool:
     return False
 
 
-def exended_symbol(symbol, root_symbol=None):
+def exended_symbol(symbol, root_symbol=None, kubeconfig: KubeConfig = None):
     if not isinstance(symbol, dict):
         return symbol
     if root_symbol is None:
@@ -35,6 +35,8 @@ def exended_symbol(symbol, root_symbol=None):
         symbol_copy["_a"] = metadata.get("annotations", {})
     if "status" in root_symbol.keys():
         symbol_copy["_s"] = root_symbol.get("status", "-")  # Create a data loopback
+    if "kubeconfig":
+        symbol_copy["_ctx"] = kubeconfig.get_context(kubeconfig.current_context)
     symbol_copy["_contains"] = _contains
     return symbol_copy
 
@@ -46,8 +48,21 @@ def print_data(data):
         print(data)
 
 
+def print_if_match(kubeconfig, item, template, select_template):
+    x = exended_symbol(item["metadata"], item, kubeconfig)
+    if select_template:
+        result = select_template.render(x)
+        if not result:
+            return
+    if format:
+        data = template.render(x)
+    else:
+        data = item
+    print_data(data)
+
+
 def get(
-    context: Optional[str] = typer.Option(
+    context_name: Optional[str] = typer.Option(
         None, "-c", "--ctx", help="Config context to use"
     ),
     endpoint_path: Optional[str] = typer.Argument(
@@ -56,7 +71,7 @@ def get(
     simple_format: Optional[str] = typer.Argument(None, help="Simple format string"),
     format: Optional[str] = typer.Option("", "-f", help="f-string for the output"),
     select: Optional[str] = typer.Option(
-        "", "-s", "--select", help="item selection condition"
+        "", "-s", "--select", help="Python expression to for item selection"
     ),
     timeout: Optional[int] = 30,
     insecure: bool = typer.Option(
@@ -69,6 +84,9 @@ def get(
     kubeconfig.load_config()
     select_template = None
 
+    if context_name:
+        context_name = context_name.strip("\r")
+
     if select:
         select_template = Template(f"{{{select}}}")
 
@@ -76,26 +94,17 @@ def get(
         tokens = simple_format.split(" ")
         format = " ".join([f"{{{token}}}" for token in tokens])
 
-    auth_data = kubeconfig.get_context_auth_data(context)
+    auth_data = kubeconfig.get_context_auth_data(context_name)
     if not auth_data:
         exit(0)
 
     reply_data = httpx_client_get(auth_data, endpoint_path, timeout, insecure)
     if format or select:
-        reply_data = exended_symbol(reply_data)
+        reply_data = exended_symbol(reply_data, kubeconfig=kubeconfig)
         if "items" in reply_data.keys():
             template = Template(format)
             for item in reply_data["items"]:
-                x = exended_symbol(item["metadata"], item)
-                if select_template:
-                    result = select_template.render(x)
-                    if not result:
-                        continue
-                if format:
-                    data = template.render(x)
-                else:
-                    data = item
-                print_data(data)
+                print_if_match(kubeconfig, item, template, select_template)
             return
         reply_data = Template(format).render(reply_data)
     print_data(reply_data)

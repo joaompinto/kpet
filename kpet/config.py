@@ -201,6 +201,7 @@ class KubeConfig:
                 file=sys.stderr,
             )
             return None
+        self.config["current-context"] = context_name
         return auth_data
 
     def switch_context(self, context_name: str) -> None:
