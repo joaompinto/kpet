@@ -1,6 +1,6 @@
 import typer
 
-from .cli import ctx, curl, get, main, show
+from .cli import ctx, get, main, show
 
 
 def app_main():
