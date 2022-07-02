@@ -1,9 +1,10 @@
-from kpet.yaml import Container, PersistentVolume, Pod
+from kpet.yaml import Container, PersistentVolume, Pod, Volume, VolumeMount
 
 pv = PersistentVolume("test", ["ReadWriteOnce"], "10Gi", hostPath=("/data", ""))
 with Pod("busybox-sleep") as pod:
-    Container("busybox", "busybox:1.28", args=["sleep", "100000"]).add()
-    Container("busybox2", "busybox:1.20", args=["sleep", "100000"]).add()
+    volume = Volume("data-storage", emptyDir=True).add()
+    with Container("busybox", "busybox:1.28", args=["sleep", "100000"]):
+        VolumeMount(volume, "/data").add()
 
 pv.print()
 pod.print()
